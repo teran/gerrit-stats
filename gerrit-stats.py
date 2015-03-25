@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import datetime
+import logging
 import re
 import simplejson
 import urllib
 import urllib2
 import yaml
+
+logging.basicConfig(level='DEBUG', format='%(levelname)s %(message)s')
 
 query = 'project:^stackforge/fuel-.* status:merged'
 
@@ -13,14 +16,14 @@ url = 'https://review.openstack.org/changes/?q=%s&n=500&o=MESSAGES' % urllib.quo
 
 CI_USER_REGEX = re.compile('(Jenkins|Fuel\sCI)')
 CI_DONE_MESSAGE_REGEX = re.compile('^Patch\sSet\s(\d+):\s(-)?Verified(\+)?')
-PATCHSET_UPLOAD_MESSAGE_REGEX = re.compile('^Uploaded patch set (\d+).$')
+PATCHSET_UPLOAD_MESSAGE_REGEX = re.compile('^(Uploaded patch set (\d+)\.|Patch Set (\d+)\: Commit message was updated)$')
 
 changes = []
 i = 0
 lastcount = 1
 morechanges = True
 lastelement = None
-
+gerritversion = None
 now = datetime.datetime.now()
 
 projects = {}
@@ -29,15 +32,37 @@ def gerritdate2date(date):
     return datetime.datetime.strptime(date[:-3], '%Y-%m-%d %H:%M:%S.%f')
 
 while morechanges:
-    try:
-        ua = urllib2.urlopen(url+'&S=%s' % int(i*100))
-    except urllib2.HTTPError as e:
-        if e.msg == 'Bad Request':
-            ua = urllib2.urlopen(url+'&N=%s' % lastelement if lastelement else url)
-        else:
-            raise
+    logging.info('Requesting changes from gerrit')
+    if not gerritversion:
+        try:
+            furl = url+'&S=%s' % int(i*100)
+            logging.debug('URL: %s' % furl)
+            ua = urllib2.urlopen(furl)
+            logging.info('Gerrit version is >= 2.9')
+            gerritversion = '>=2.9'
+        except urllib2.HTTPError as e:
+            if e.msg == 'Bad Request':
+                furl = url+'&N=%s' % lastelement if lastelement else url
+                logging.debug('URL: %s' % furl)
+                ua = urllib2.urlopen(furl)
+                logging.info('Gerrit version is <= 2.8')
+                gerritversion = '<=2.8'
+            else:
+                raise
+    elif gerritversion == '<=2.8':
+        furl = url+'&N=%s' % lastelement if lastelement else url
+        logging.debug('URL: %s' % furl)
+        ua = urllib2.urlopen(furl)
+    elif gerritversion == '>=2.9':
+        furl = url+'&S=%s' % int(i*100)
+        logging.debug('URL: %s' % furl)
+        ua = urllib2.urlopen(furl)
+    else:
+        raise Exception('Unknown gerrit version')
+
     data = simplejson.loads(ua.read()[5:])
     for change in data:
+        #logging.info('Processing change %s into %s' % (change['_number'], change['project']))
         project = change['project']
         created = gerritdate2date(change['created'])
         if now - datetime.timedelta(days=7) < created:
@@ -60,13 +85,16 @@ while morechanges:
 
                     if 'author' in message and re.search(CI_USER_REGEX, message['author']['name']) and re.search(CI_DONE_MESSAGE_REGEX, message['message']):
                         lags[revision]['end'] = gerritdate2date(message['date'])
+                        logging.info('END   %s change %s ; revision %s ; message: %s' % (message['date'], change['_number'], revision, message['message'].replace('\n',' ')))
                     elif re.search(PATCHSET_UPLOAD_MESSAGE_REGEX, message['message']):
                         lags[revision]['start'] = gerritdate2date(message['date'])
+                        logging.info('START %s change %s ; revision %s ; message: %s' % (message['date'], change['_number'], revision, message['message'].replace('\n',' ')))
 
             if 'lags' not in projects[project]:
                 projects[project]['lags'] = []
             else:
                 for lag in lags:
+                    logging.info('LAG DATA change %s: %s' % (change['_number'], lags[lag]))
                     if 'start' in lags[lag] and 'end' in lags[lag]:
                         res = (lags[lag]['end'] - lags[lag]['start']).total_seconds()
                         projects[project]['lags'].append(res)
@@ -79,8 +107,8 @@ while morechanges:
     except KeyError:
         morechanges = False
 
-    print 'DEBUG: lastcount: %s ; lastelement: %s ; i: %s' % (
-        lastcount, lastelement, i)
+    logging.debug('lastcount: %s ; lastelement: %s ; i: %s' % (
+        lastcount, lastelement, i))
 
 for project in projects.keys():
     if len(projects[project]['lags']) > 0:
