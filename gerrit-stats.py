@@ -108,10 +108,10 @@ while morechanges:
                 projects[project]['lags'] = []
             else:
                 for lag in lags:
-                    logging.info('LAG DATA change %s: %s' % (change['_number'], lags[lag]))
                     if 'start' in lags[lag] and 'end' in lags[lag]:
                         res = (lags[lag]['end'] - lags[lag]['start']).total_seconds()
                         projects[project]['lags'].append(res)
+                        logging.info('LAG DATA change %s: %s ; res %s' % (change['_number'], lags[lag], res))
 
     i+=1
     lastcount = len(data)
