@@ -15,7 +15,7 @@ query = 'project:^stackforge/fuel-.* status:merged'
 url = 'https://review.openstack.org/changes/?q=%s&n=500&o=MESSAGES' % urllib.quote(query)
 
 CI_USER_REGEX = re.compile('(Jenkins|Fuel\sCI)')
-CI_DONE_MESSAGE_REGEX = re.compile('^Patch\sSet\s(\d+):\s(-)?Verified(\+)?')
+CI_DONE_MESSAGE_REGEX = re.compile('^Patch\sSet\s(\d+):\s(-)?Verified.1')
 PATCHSET_UPLOAD_MESSAGE_REGEX = re.compile('^(Uploaded patch set (\d+)\.|Patch Set (\d+)\: Commit message was updated)$')
 
 changes = []
@@ -30,6 +30,20 @@ projects = {}
 
 def gerritdate2date(date):
     return datetime.datetime.strptime(date[:-3], '%Y-%m-%d %H:%M:%S.%f')
+    
+def pretty_duration(total_seconds):
+       hours = total_seconds / 3600
+       minutes = total_seconds % 3600 / 60
+       seconds = total_seconds % 3600 % 60
+       result = ""
+       if hours:
+               result += "%sh" % hours
+       if minutes:
+                result += "%sm" % minutes
+        if seconds:
+                result += "%ss" % seconds
+
+       return  result
 
 while morechanges:
     logging.info('Requesting changes from gerrit')
@@ -117,9 +131,9 @@ for project in projects.keys():
         avgv = int(reduce(lambda x, y: x + y, projects[project]['lags']) / len(projects[project]['lags']))
         del(projects[project]['lags'])
         projects[project]['lags'] = {
-            'max': maxv,
-            'min': minv,
-            'avg': avgv,
+            'max': pretty_duration(maxv),
+            'min': pretty_duration(minv),
+            'avg': pretty_duration(avgv),
         }
 
 print yaml.dump(projects, default_flow_style=False)
