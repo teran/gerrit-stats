@@ -37,11 +37,11 @@ def pretty_duration(total_seconds):
        seconds = total_seconds % 3600 % 60
        result = ""
        if hours:
-               result += "%sh" % hours
+            result += "%sh" % hours
        if minutes:
-                result += "%sm" % minutes
-        if seconds:
-                result += "%ss" % seconds
+            result += "%sm" % minutes
+       if seconds:
+            result += "%ss" % seconds
 
        return  result
 
