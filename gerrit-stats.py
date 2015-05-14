@@ -30,7 +30,7 @@ projects = {}
 
 def gerritdate2date(date):
     return datetime.datetime.strptime(date[:-3], '%Y-%m-%d %H:%M:%S.%f')
-    
+
 def pretty_duration(total_seconds):
        hours = total_seconds / 3600
        minutes = total_seconds % 3600 / 60
@@ -124,6 +124,10 @@ while morechanges:
     logging.debug('lastcount: %s ; lastelement: %s ; i: %s' % (
         lastcount, lastelement, i))
 
+total_commits = 0
+max_lag = 0
+min_lag = 0
+avg_lag = 0
 for project in projects.keys():
     if len(projects[project]['lags']) > 0:
         minv = int(min(projects[project]['lags']))
@@ -136,4 +140,20 @@ for project in projects.keys():
             'avg': pretty_duration(avgv),
         }
 
+        total_commits += projects[project]['commits']
+        max_lag += maxv
+        min_lag += minv
+        avg_lag += avgv
+
 print yaml.dump(projects, default_flow_style=False)
+
+print """
+Overall commits: %s
+Max lag: %s
+Min lag: %s
+Avg lag: %s
+""" % (
+    total_commits,
+    pretty_duration(max_lag),
+    pretty_duration(min_lag),
+    pretty_duration(avg_lag))
