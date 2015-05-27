@@ -7,8 +7,9 @@ import simplejson
 import urllib
 import urllib2
 import yaml
+import json
 
-logging.basicConfig(level='DEBUG', format='%(levelname)s %(message)s')
+logging.basicConfig(level='CRITICAL', format='%(levelname)s %(message)s')
 
 query = 'project:^stackforge/fuel-.* status:merged'
 
@@ -27,6 +28,7 @@ gerritversion = None
 now = datetime.datetime.now()
 
 projects = {}
+drshn_bfr_mrg = dict()
 
 def gerritdate2date(date):
     return datetime.datetime.strptime(date[:-3], '%Y-%m-%d %H:%M:%S.%f')
@@ -112,7 +114,7 @@ while morechanges:
                         res = (lags[lag]['end'] - lags[lag]['start']).total_seconds()
                         projects[project]['lags'].append(res)
                         logging.info('LAG DATA change %s: %s ; res %s' % (change['_number'], lags[lag], res))
-
+                        drshn_bfr_mrg[res] = (change['_number'], res)
     i+=1
     lastcount = len(data)
     try:
@@ -157,3 +159,13 @@ Avg lag: %s
     pretty_duration(max_lag),
     pretty_duration(min_lag),
     pretty_duration(avg_lag))
+
+output = ([
+    ('Period', (datetime.datetime.strftime((datetime.datetime.now() - datetime.timedelta(days=7)), '%Y-%m-%d'), datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d'))),
+    ('Commits merged in stackforge repos', ("", total_commits)),
+    ('Time elapsed', ("Average", "Max")),
+    ('From patchset created to CI finished',(pretty_duration(avg_lag), pretty_duration(int(drshn_bfr_mrg[max(drshn_bfr_mrg.keys())][1])), drshn_bfr_mrg[max(drshn_bfr_mrg.keys())][0]))
+])
+print output
+with open('gr_metrics.json', 'w') as outfile:
+    json.dump(output, outfile)
