@@ -15,7 +15,6 @@ query = 'project:^openstack/fuel-.* status:merged'
 
 url = 'https://review.openstack.org/changes/?q=%s&n=500&o=MESSAGES' % urllib.quote(query)
 
-CI_USER_REGEX = re.compile('(Jenkins|Fuel\sCI)')
 CI_DONE_MESSAGE_REGEX = re.compile('^Patch\sSet\s(\d+):\s(-)?Verified.1')
 PATCHSET_UPLOAD_MESSAGE_REGEX = re.compile('^(Uploaded patch set (\d+)\.|Patch Set (\d+)\: Commit message was updated)$')
 
@@ -26,6 +25,9 @@ morechanges = True
 lastelement = None
 gerritversion = None
 now = datetime.datetime.now()
+
+jenkins_id = 3
+fuel_ci_id = 8971
 
 projects = {}
 drshn_bfr_mrg = dict()
@@ -99,7 +101,7 @@ while morechanges:
                     if revision not in lags:
                         lags[revision] = {}
 
-                    if 'author' in message and re.search(CI_USER_REGEX, message['author']['name']) and re.search(CI_DONE_MESSAGE_REGEX, message['message']):
+                    if 'author' in message and (message['author']['_account_id'] == jenkins_id or message['author']['_account_id'] == fuel_ci_id ) and re.search(CI_DONE_MESSAGE_REGEX, message['message']):
                         lags[revision]['end'] = gerritdate2date(message['date'])
                         logging.info('END   %s change %s ; revision %s ; message: %s' % (message['date'], change['_number'], revision, message['message'].replace('\n',' ')))
                     elif re.search(PATCHSET_UPLOAD_MESSAGE_REGEX, message['message']):
