@@ -11,7 +11,7 @@ import json
 
 logging.basicConfig(level='CRITICAL', format='%(levelname)s %(message)s')
 
-query = 'project:^openstack/fuel-.* status:merged'
+query = 'project:^openstack/fuel-.* -project:^openstack/fuel-plugin.* status:merged'
 
 url = 'https://review.openstack.org/changes/?q=%s&n=500&o=MESSAGES' % urllib.quote(query)
 
